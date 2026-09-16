@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Java Step Visualizer</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;background:#f0f2f5;font-family:'Inter',sans-serif;color:#1a2332;}
+
+/* ── TOP BAR ── */
+#topbar{
+  background:#fff;border-bottom:1px solid #d0d7de;
+  padding:10px 20px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+}
+.app-title{font-size:15px;font-weight:700;color:#1a2332;}
+.tb-sep{width:1px;height:20px;background:#d0d7de;flex-shrink:0;}
+.tb-label{font-size:11px;color:#888;flex-shrink:0;}
+.ex-btn{padding:4px 10px;border-radius:5px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid #c8d3db;background:#f6f8fa;color:#444;transition:all .15s;}
+.ex-btn:hover{background:#dce6f0;}
+.tbtn{padding:6px 14px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .15s;display:flex;align-items:center;gap:6px;}
+.tbtn-blue{background:#4a72b8;color:#fff;}
+.tbtn-blue:hover{background:#3a62a8;}
+.tbtn-outline{background:#fff;color:#4a72b8;border:1px solid #4a72b8;}
+.tbtn-outline:hover{background:#eef3fb;}
+.ml-auto{margin-left:auto;}
+
+/* ── EDIT VIEW ── */
+#edit-view{display:flex;flex-direction:column;height:calc(100vh - 53px);}
+.editor-wrap{flex:1;display:flex;overflow:hidden;background:#fff;border:2px dashed #c8d3db;border-radius:8px;margin:14px 20px 0;}
+#line-nums{flex-shrink:0;width:42px;padding:10px 6px 10px 10px;font:500 13px/20px 'JetBrains Mono',monospace;color:#aaa;text-align:right;overflow:hidden;background:#fafbfc;border-right:1px solid #e8ecf0;white-space:pre;user-select:none;}
+#code-ta{flex:1;padding:10px 14px;resize:none;border:none;outline:none;background:transparent;color:#1a2332;font:400 13px/20px 'JetBrains Mono',monospace;white-space:pre;overflow-wrap:normal;overflow-x:auto;tab-size:4;}
+.edit-footer{padding:9px 20px 12px;display:flex;align-items:center;gap:10px;color:#888;font-size:12px;}
+.hint{background:#f0f2f5;border:1px solid #d0d7de;border-radius:4px;padding:2px 6px;font-family:monospace;font-size:11px;color:#555;}
+#err-bar{margin:0 20px 8px;padding:8px 12px;background:#fff3f3;border:1px solid #f5c6cb;border-radius:6px;font-size:12px;color:#c0392b;display:none;}
+
+/* ── PLAY VIEW ── */
+#play-view{display:none;flex-direction:column;height:calc(100vh - 53px);overflow:hidden;padding:12px 20px;gap:10px;}
+
+/* Code + Variables row */
+.cv-row{display:flex;gap:12px;flex:1;min-height:0;}
+
+/* Code panel */
+.code-panel{flex:1;min-width:0;border:2px dashed #c8d3db;border-radius:8px;background:#fff;overflow:auto;}
+.code-line{display:flex;align-items:flex-start;min-height:22px;position:relative;transition:background .2s;}
+/* CALL SITE: blue highlight */
+.code-line.active{background:#ddeeff;}
+/* METHOD BODY: green highlight */
+.code-line.active-method{background:#ddeed8;}
+.cl-arrow{width:22px;flex-shrink:0;display:flex;align-items:center;justify-content:center;padding-top:3px;font-size:12px;font-weight:700;}
+.cl-arrow-blue{color:#2255cc;}
+.cl-arrow-green{color:#2e7d32;}
+.cl-num{min-width:34px;padding:3px 8px 3px 0;flex-shrink:0;font:500 12px/16px 'JetBrains Mono',monospace;color:#aaa;text-align:right;user-select:none;}
+.cl-code{padding:3px 12px 3px 2px;font:400 13px/16px 'JetBrains Mono',monospace;white-space:pre;flex:1;}
+
+/* Syntax highlight - light theme */
+.hkw{color:#0033aa;}.htp{color:#8b0000;}.hfn{color:#5a2d82;}.hst{color:#007700;}.hnu{color:#1565c0;}.hid{color:#1a2332;}.hcm{color:#999;font-style:italic;}
+
+/* Variables panel */
+.var-col{width:220px;flex-shrink:0;display:flex;flex-direction:column;gap:10px;}
+.vbox{background:#fff;border-radius:8px;border:1px solid #d0d7de;overflow:hidden;}
+.vbox-hdr{background:#4a72b8;color:#fff;padding:7px 12px;font-size:13px;font-weight:600;}
+.vtable{width:100%;border-collapse:collapse;font-size:12px;}
+.vtable th{background:#dce6f2;padding:5px 10px;text-align:left;font-weight:600;color:#2c4a6e;border-bottom:1px solid #c0cfe0;font-size:11px;text-transform:uppercase;letter-spacing:.04em;}
+.vtable td{padding:5px 10px;border-bottom:1px solid #f0f2f5;font-family:'JetBrains Mono',monospace;color:#1a2332;font-size:12px;}
+.vtable tr:last-child td{border-bottom:none;}
+.vtable tr.nw td{animation:newrow .6s ease;}
+@keyframes newrow{0%{background:#d4edda}100%{background:transparent}}
+.vref{color:#4a72b8;font-weight:600;}
+.hempty{padding:8px 10px;font-size:11px;color:#aaa;font-family:monospace;}
+.heap-row{padding:5px 10px;border-bottom:1px solid #f0f2f5;font-size:12px;font-family:monospace;}
+.heap-row:last-child{border-bottom:none;}
+
+/* ── EXPLANATION BOX ── */
+.explain-box{
+  flex-shrink:0;background:#fffdf0;
+  border:1px solid #e8d060;border-left:4px solid #c8a820;
+  border-radius:7px;padding:9px 14px;
+  font-size:12.5px;line-height:1.65;color:#3a3010;
+}
+.explain-box b{color:#1a1a00;font-weight:700;}
+.explain-box code{font-family:'JetBrains Mono',monospace;background:#f5f0d0;padding:1px 4px;border-radius:3px;font-size:11.5px;}
+
+/* Analysis */
+.an-row{display:flex;gap:12px;flex-shrink:0;}
+.an-card{flex:1;background:#fff;border-radius:8px;border:1px solid #d0d7de;overflow:hidden;}
+.an-hdr{padding:7px 14px;font-size:12px;font-weight:700;letter-spacing:.04em;}
+.an-hdr-ct{background:#ece8f8;color:#5a2d82;}
+.an-hdr-rt{background:#e8f5e9;color:#2e7d32;}
+.an-row-item{display:flex;align-items:baseline;border-bottom:1px solid #f0f2f5;font-size:12px;}
+.an-row-item:last-child{border-bottom:none;}
+.an-k{padding:5px 8px 5px 14px;color:#777;min-width:110px;flex-shrink:0;font-size:11px;}
+.an-v{padding:5px 10px 5px 0;font-family:'JetBrains Mono',monospace;font-size:12px;color:#1a2332;flex:1;}
+.av-blue{color:#4a72b8;font-weight:600;}
+.av-pur{color:#5a2d82;font-weight:600;}
+.av-grn{color:#2e7d32;font-weight:600;}
+.av-red{color:#c0392b;font-weight:600;}
+.av-gray{color:#aaa;}
+.av-org{color:#e67e22;font-weight:600;}
+.wt{display:inline-flex;align-items:center;background:#fef9e7;border:1px solid #f9e79f;color:#d68910;padding:0 5px;border-radius:3px;font-size:10px;font-family:'JetBrains Mono',monospace;}
+.cand-list{display:flex;flex-direction:column;gap:2px;padding:4px 10px 4px 0;}
+.cand-item{padding:2px 8px;border-radius:4px;font-size:11px;font-family:'JetBrains Mono',monospace;}
+.ci-ok{background:#e8f5e9;color:#2e7d32;}
+.ci-no{background:#fdecea;color:#c0392b;text-decoration:line-through;}
+.ci-sel{background:#ece8f8;border:1px solid #c8b8f0;color:#5a2d82;}
+.an-placeholder{padding:14px;font-size:12px;color:#aaa;text-align:center;font-style:italic;}
+
+/* Output */
+.out-panel{flex-shrink:0;background:#fff;border-radius:8px;border:1px solid #d0d7de;overflow:hidden;}
+.out-hdr{background:#4a72b8;color:#fff;padding:8px 16px;font-size:15px;font-weight:700;}
+.out-body{padding:10px 16px;min-height:48px;font:400 13px/1.8 'JetBrains Mono',monospace;color:#1a2332;}
+.out-line{animation:lfade .3s ease;}
+@keyframes lfade{from{opacity:0}to{opacity:1}}
+.out-empty{color:#bbb;font-size:12px;}
+
+/* Navigation */
+.nav-area{flex-shrink:0;display:flex;flex-direction:column;gap:8px;}
+.nav-slider-wrap{padding:0 4px;}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:8px;border-radius:4px;background:#d0d7de;outline:none;cursor:pointer;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:#4a72b8;cursor:pointer;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.2);}
+.nav-btns{display:grid;grid-template-columns:1fr 90px 1fr;align-items:center;gap:10px;}
+.nav-counter{text-align:center;font-size:15px;font-weight:600;color:#444;}
+.nbtn{padding:11px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;border:none;transition:all .15s;width:100%;}
+.nbtn-prev{background:#4a72b8;color:#fff;}
+.nbtn-prev:hover{background:#3a62a8;}
+.nbtn-prev:disabled{background:#b0bec5;cursor:default;}
+.nbtn-next{background:#8a9ab0;color:#fff;}
+.nbtn-next:hover{background:#7a8aa0;}
+.nbtn-next:disabled{background:#b0bec5;cursor:default;}
+.nbtn-next.on{background:#4a72b8;}
+.nbtn-next.on:hover{background:#3a62a8;}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div id="topbar">
+  <span class="app-title">Java Step Visualizer</span>
+  <div class="tb-sep" id="sep-e"></div>
+  <span class="tb-label" id="lbl-ex">Örnek:</span>
+  <button class="ex-btn" id="ex1" onclick="loadEx('ober')">Ober / Unter</button>
+  <button class="ex-btn" id="ex2" onclick="loadEx('animal')">Animal / Dog</button>
+  <button class="ex-btn" id="ex3" onclick="loadEx('shape')">Shape</button>
+  <button class="tbtn tbtn-outline" id="btn-clr" onclick="clearCode()" style="padding:4px 10px;font-size:12px;">Temizle</button>
+  <button class="tbtn tbtn-blue ml-auto" id="btn-az" onclick="runAnalysis()">
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0zm-1.5 4.5v7l6-3.5z"/></svg>
+    Analiz Et
+  </button>
+  <button class="tbtn tbtn-outline ml-auto" id="btn-ed" style="display:none;" onclick="switchToEdit()">✎ Kodu Düzenle</button>
+</div>
+
+<!-- EDIT VIEW -->
+<div id="edit-view">
+  <div class="editor-wrap">
+    <div id="line-nums">1</div>
+    <textarea id="code-ta" spellcheck="false" autocorrect="off" placeholder="Java kodunu buraya yaz..."></textarea>
+  </div>
+  <div id="err-bar"></div>
+  <div class="edit-footer">
+    <span class="hint">Tab</span> = 4 boşluk &nbsp;
+    <span class="hint">Ctrl+Enter</span> = Analiz Et
+  </div>
+</div>
+
+<!-- PLAY VIEW -->
+<div id="play-view">
+
+  <!-- Code + Variables -->
+  <div class="cv-row">
+    <div class="code-panel" id="code-panel"></div>
+    <div class="var-col">
+      <div class="vbox" id="stack-box">
+        <div class="vbox-hdr" id="stack-hdr">main:1</div>
+        <table class="vtable">
+          <thead><tr><th>Name</th><th>Value</th></tr></thead>
+          <tbody id="stack-body"></tbody>
+        </table>
+      </div>
+      <div class="vbox" id="heap-box" style="display:none;">
+        <div class="vbox-hdr" style="background:#2e7d32;">Heap</div>
+        <div id="heap-body"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Explanation box -->
+  <div class="explain-box" id="explain-box">–</div>
+
+  <!-- Analysis (hidden for non-call steps) -->
+  <div class="an-row" id="an-row" style="display:none;">
+    <div class="an-card">
+      <div class="an-hdr an-hdr-ct">⚙ Compile-Time — Statik Tip Kararı</div>
+      <div id="ct-body"></div>
+    </div>
+    <div class="an-card">
+      <div class="an-hdr an-hdr-rt">▶ Runtime — Dinamik Dispatch</div>
+      <div id="rt-body"></div>
+    </div>
+  </div>
+
+  <!-- Output -->
+  <div class="out-panel">
+    <div class="out-hdr">Output</div>
+    <div class="out-body" id="out-body"><span class="out-empty">// Henüz çıktı yok</span></div>
+  </div>
+
+  <!-- Navigation -->
+  <div class="nav-area">
+    <div class="nav-slider-wrap">
+      <input type="range" id="nav-slider" min="0" value="0" oninput="jumpTo(+this.value)"/>
+    </div>
+    <div class="nav-btns">
+      <button class="nbtn nbtn-prev" id="btn-prev" onclick="prevStep()">Prev</button>
+      <span class="nav-counter" id="nav-counter">1 / 1</span>
+      <button class="nbtn nbtn-next" id="btn-next" onclick="nextStep()">Next</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════
+   TYPE SYSTEM
+═══════════════════════════════════════════════════ */
+const WIDEN={byte:{short:1,int:2,long:3,float:4,double:5},short:{int:1,long:2,float:3,double:4},char:{int:1,long:2,float:3,double:4},int:{long:1,float:2,double:3},long:{float:1,double:2},float:{double:1}};
+function primCost(f,t){if(f===t)return 0;return(WIDEN[f]&&WIDEN[f][t])||Infinity;}
+function isRef(s,p,cls){if(s===p||p==='Object')return true;let c=s;const v=new Set();while(c&&cls[c]&&!v.has(c)){v.add(c);c=cls[c].superclass;if(c===p)return true;}return false;}
+function asCost(f,t,cls){const p=primCost(f,t);return p!==Infinity?p:isRef(f,t,cls)?1:Infinity;}
+
+/* ═══════════════════════════════════════════════════
+   PARSER
+═══════════════════════════════════════════════════ */
+function stripComments(code){
+  return code
+    .replace(/\/\/[^\n]*/g,m=>' '.repeat(m.length))
+    .replace(/\/\*[\s\S]*?\*\//g,m=>m.replace(/[^\n]/g,' '));
+}
+function lineAt(sc,pos){return sc.slice(0,pos).split('\n').length;}
+function extractBlock(code,openIdx){
+  let i=openIdx,depth=0;
+  while(i<code.length&&code[i]!=='{')i++;
+  if(i>=code.length)return{inner:'',end:i};
+  depth=1;const start=++i;
+  while(i<code.length&&depth>0){
+    const c=code[i];
+    if(c==='{')depth++;
+    else if(c==='}')depth--;
+    else if(c==='"'){i++;while(i<code.length&&code[i]!=='"'){if(code[i]==='\\')i++;i++;}}
+    else if(c==="'"){i++;while(i<code.length&&code[i]!=="'"){if(code[i]==='\\')i++;i++;}}
+    i++;
+  }
+  return{inner:code.slice(start,i-1),end:i};
+}
+const SKW=new Set(['if','for','while','do','switch','try','catch','else','new','return','throw','class','interface','enum','synchronized','case','default','finally','instanceof']);
+
+// ── parseMethods: tracks lineNum of each method ──
+function parseMethods(body,cls,off,sc){
+  const methods=[];
+  const mRe=/(?:(?:public|private|protected|static|final|abstract|synchronized|native|void)\s+)*(\w[\w\[\]]*)\s+(\w+)\s*\(([^)]*)\)\s*(?:throws\s+[\w\s,]+?)?\{/g;
+  let m;
+  while((m=mRe.exec(body))!==null){
+    const ret=m[1],name=m[2],ps=m[3];
+    if(SKW.has(ret)||SKW.has(name))continue;
+    const bPos=m.index+m[0].length-1;
+    const{inner:mb,end}=extractBlock(body,bPos);
+    mRe.lastIndex=end;
+    const isStatic=/\bstatic\b/.test(m[0]);
+    const params=parseParams(ps);
+    const prints=getPrintlns(mb);
+    const stmts=name==='main'?parseStmts(mb,off+bPos+1,sc):[];
+    // Track line number of this method declaration
+    const lineNum=lineAt(sc,off+m.index);
+    methods.push({name,returnType:ret,params,body:mb,prints,isStatic,cls,stmts,lineNum});
+  }
+  return methods;
+}
+function parseParams(s){s=s.trim();if(!s)return[];return s.split(',').map(p=>{const parts=p.trim().split(/\s+/);if(parts.length<2)return null;return{type:parts.slice(0,parts.length-1).join(' '),name:parts[parts.length-1]};}).filter(Boolean);}
+function getPrintlns(body){const re=/System\.out\.println\s*\(\s*"([^"]*)"\s*\)/g;const r=[];let m;while((m=re.exec(body))!==null)r.push(m[1]);return r;}
+function parseStmts(body,off,sc){
+  const stmts=[];let cur='',depth=0,inStr=false,sOff=0,hasC=false;
+  for(let i=0;i<body.length;i++){
+    const c=body[i];
+    if(c==='"'&&!inStr){inStr=true;cur+=c;}else if(c==='"'&&inStr){inStr=false;cur+=c;}else if(inStr){cur+=c;}
+    else if(c==='{'){depth++;cur+=c;}else if(c==='}'){depth--;cur+=c;}
+    else if(c===';'&&depth===0){const t=cur.trim();if(t){const ln=lineAt(sc,off+sOff);stmts.push({...parseOne(t),lineNum:ln});}cur='';hasC=false;sOff=i+1;}
+    else{if(!hasC&&c.trim()){hasC=true;sOff=i;}cur+=c;}
+  }
+  return stmts.filter(s=>s&&s.type);
+}
+function parseOne(s){
+  let m;
+  m=s.match(/^(\w[\w\[\]]*)\s+(\w+)\s*=\s*new\s+(\w+)\s*\(([^)]*)\)\s*$/);if(m)return{type:'varDecl',sType:m[1],varName:m[2],dType:m[3],raw:s+';'};
+  m=s.match(/^(\w[\w\[\]]*)\s+(\w+)\s*$/);if(m&&!SKW.has(m[1]))return{type:'varDecl',sType:m[1],varName:m[2],dType:null,raw:s+';'};
+  m=s.match(/^(\w+)\s*=\s*new\s+(\w+)\s*\(([^)]*)\)\s*$/);if(m)return{type:'assign',varName:m[1],dType:m[2],raw:s+';'};
+  m=s.match(/^System\.out\.println\s*\(([^)]*)\)\s*$/);if(m)return{type:'println',arg:m[1].trim(),raw:s+';'};
+  m=s.match(/^(\w+)\.(\w+)\s*\(([^)]*)\)\s*$/);if(m)return{type:'call',recv:m[1],mName:m[2],argsRaw:m[3].trim(),raw:s+';'};
+  return{type:'other',raw:s+';'};
+}
+function parseJava(rawCode){
+  const sc=stripComments(rawCode);const classes={};const errors=[];
+  const cRe=/(?:public\s+)?class\s+(\w+)(?:\s+extends\s+(\w+))?\s*\{/g;let m;
+  while((m=cRe.exec(sc))!==null){
+    const name=m[1],sup=m[2]||null;const hEnd=m.index+m[0].length;
+    const{inner,end}=extractBlock(sc,hEnd-1);cRe.lastIndex=end;
+    classes[name]={name,superclass:sup,methods:parseMethods(inner,name,hEnd,sc)};
+  }
+  let mainClass=null,mainStmts=[];
+  for(const[cn,ci]of Object.entries(classes)){const mm=ci.methods.find(m=>m.name==='main');if(mm){mainClass=cn;mainStmts=mm.stmts||[];break;}}
+  if(!mainClass)errors.push('main() metodu bulunamadı.');
+  return{classes,mainClass,mainStmts,errors,rawCode,sc};
+}
+
+/* ═══════════════════════════════════════════════════
+   RESOLUTION
+═══════════════════════════════════════════════════ */
+function inferType(tok,vars){
+  tok=tok.trim();if(!tok)return'void';
+  if(/^-?\d+[Ll]$/.test(tok))return'long';
+  if(/^-?\d+\.\d*[Ff]$|^-?\d+[Ff]$/.test(tok))return'float';
+  if(/^-?\d+\.\d*[Dd]?$|^-?\d+[Dd]$/.test(tok))return'double';
+  if(/^-?\d+$/.test(tok))return'int';
+  if(/^".*"$/.test(tok))return'String';
+  if(tok==='true'||tok==='false')return'boolean';if(/^'.'$/.test(tok))return'char';
+  if(vars[tok])return vars[tok].sType;return'unknown';
+}
+function getHier(cls,classes){const ch=[];let c=cls;const v=new Set();while(c&&classes[c]&&!v.has(c)){v.add(c);ch.push(c);c=classes[c].superclass;}return ch;}
+function getMethods(cls,mName,classes){return getHier(cls,classes).flatMap(c=>(classes[c]?.methods||[]).filter(m=>m.name===mName&&!m.isStatic));}
+function resolveOL(sCls,mName,argTypes,classes){
+  const cands=getMethods(sCls,mName,classes);
+  if(!cands.length)return{ok:false,error:`'${sCls}' içinde '${mName}' bulunamadı.`,cands:[]};
+  const app=[];
+  for(const c of cands){
+    if(c.params.length!==argTypes.length){c._rej='param sayısı uyuşmuyor';continue;}
+    let tot=0,ok=true;const det=[];
+    for(let i=0;i<argTypes.length;i++){const cost=asCost(argTypes[i],c.params[i].type,classes);if(cost===Infinity){ok=false;c._rej=`${argTypes[i]}→${c.params[i].type} atanamaz`;break;}tot+=cost;det.push({from:argTypes[i],to:c.params[i].type,cost});}
+    if(ok)app.push({method:c,total:tot,det});
+  }
+  if(!app.length)return{ok:false,error:`Uygun metot yok: ${mName}(${argTypes.join(',')})`,cands};
+  app.sort((a,b)=>a.total-b.total);return{ok:true,sel:app[0],app,cands};
+}
+function resolveRT(dCls,mName,selParams,classes){
+  for(const cls of getHier(dCls,classes)){
+    const m=(classes[cls]?.methods||[]).find(m=>{
+      if(m.name!==mName||m.isStatic)return false;if(m.params.length!==selParams.length)return false;
+      return m.params.every((p,i)=>p.type===selParams[i].type);
+    });
+    if(m)return{ok:true,method:m,inCls:cls};
+  }
+  return{ok:false,error:`Runtime dispatch başarısız: ${mName} @ ${dCls}`};
+}
+function sigS(m){return m.name+'('+m.params.map(p=>p.type).join(', ')+')';}
+function sigL(m){return m.name+'('+m.params.map(p=>p.type+' '+p.name).join(', ')+')';}
+
+/* ═══════════════════════════════════════════════════
+   STEP GENERATOR — includes methodLines for RT steps
+═══════════════════════════════════════════════════ */
+function genSteps(parsed){
+  const{classes,mainClass,mainStmts}=parsed;
+  const steps=[];
+  const vars={};const heap={};let hCtr=1;let cout=[];
+
+  function snap(){return{stack:{frame:'main',vars:Object.entries(vars).map(([n,v])=>({name:n,...v}))},heap:Object.fromEntries(Object.entries(heap).map(([k,v])=>([k,{...v}])))};}
+
+  steps.push({type:'init',lines:[],methodLines:[],label:'Program başladı',
+    explain:'Program başlatıldı. JVM <b>main()</b> metodunu çağırdı ve stack\'te yeni bir çerçeve açıldı.',
+    mem:snap(),cout:[],analysis:null});
+
+  for(const stmt of mainStmts){
+    if(stmt.type==='varDecl'){
+      if(stmt.dType){
+        const hid='obj'+hCtr++;
+        vars[stmt.varName]={sType:stmt.sType,dType:stmt.dType,heapId:hid,isNew:true};
+        heap[hid]={cls:stmt.dType,id:hid};
+      }
+      const same=stmt.sType===stmt.dType;
+      const ex=stmt.dType
+        ?(same
+          ?`<code>${stmt.varName}</code> değişkeni oluşturuldu. Statik ve dinamik tipi aynı: <b>${stmt.sType}</b>.`
+          :`<code>${stmt.varName}</code> değişkeni oluşturuldu. Statik tip: <b>${stmt.sType}</b>, gerçek nesnenin tipi (dinamik tip): <b>${stmt.dType}</b>. Derleyici yalnızca <b>${stmt.sType}</b>'ın metodlarını görebilir!`)
+        :`<code>${stmt.varName}</code> değişkeni tanımlandı (başlangıç değeri yok).`;
+      steps.push({type:'varDecl',lines:[stmt.lineNum],methodLines:[],label:`${stmt.varName} tanımlandı`,
+        explain:ex,mem:snap(),cout:[...cout],analysis:null,stmt});
+      if(vars[stmt.varName])vars[stmt.varName].isNew=false;
+    }
+    else if(stmt.type==='assign'){
+      if(vars[stmt.varName]){const hid='obj'+hCtr++;vars[stmt.varName].dType=stmt.dType;vars[stmt.varName].heapId=hid;heap[hid]={cls:stmt.dType,id:hid};}
+      steps.push({type:'assign',lines:[stmt.lineNum],methodLines:[],label:`${stmt.varName} = new ${stmt.dType}()`,
+        explain:`<code>${stmt.varName}</code> değişkenine yeni bir <b>${stmt.dType}</b> nesnesi atandı.`,
+        mem:snap(),cout:[...cout],analysis:null,stmt});
+    }
+    else if(stmt.type==='call'){
+      const vi=vars[stmt.recv];
+      if(!vi){
+        steps.push({type:'err',lines:[stmt.lineNum],methodLines:[],label:`Hata: '${stmt.recv}' tanımsız`,
+          explain:`<b>Hata:</b> <code>${stmt.recv}</code> değişkeni henüz tanımlanmamış.`,
+          mem:snap(),cout:[...cout],analysis:null,stmt});continue;
+      }
+      const argToks=stmt.argsRaw?stmt.argsRaw.split(',').map(a=>a.trim()).filter(Boolean):[];
+      const argTypes=argToks.map(t=>inferType(t,vars));
+      const ct=resolveOL(vi.sType,stmt.mName,argTypes,classes);
+      const rt=ct.ok?resolveRT(vi.dType,stmt.mName,ct.sel.method.params,classes):null;
+
+      // Build CT explain
+      let exCT=`<code>${stmt.recv}.${stmt.mName}(${argToks.join(', ')})</code> çağrısı derleniyor. `;
+      exCT+=`Derleyici statik tip <b>${vi.sType}</b>'a bakıyor. `;
+      if(ct.ok){
+        if(ct.sel.det.some(d=>d.cost>0)){const wt=ct.sel.det.filter(d=>d.cost>0).map(d=>`<b>${d.from}→${d.to}</b>`).join(', ');exCT+=`Argüman tipi dönüştürülüyor: ${wt} (widening). `;}
+        exCT+=`Seçilen imza: <b>${sigL(ct.sel.method)}</b> — <b>${ct.sel.method.cls}</b> sınıfında.`;
+      }else{exCT+=`<b>Hata:</b> ${ct.error}`;}
+
+      steps.push({type:'call-ct',lines:[stmt.lineNum],methodLines:[],label:`${stmt.recv}.${stmt.mName}() — Compile-Time`,
+        explain:exCT,mem:snap(),cout:[...cout],analysis:{phase:'ct',ct,rt:null,vi,argTypes,argToks},stmt});
+
+      // Build RT explain
+      let exRT=`Çalışma zamanında JVM, <code>${stmt.recv}</code>'in gerçek tipine bakıyor: <b>${vi.dType}</b>. `;
+      let rtMLines=[];
+      if(!ct.ok){exRT='Compile-time hatası nedeniyle çalışmaz.';}
+      else if(rt?.ok){
+        rtMLines=[rt.method.lineNum];// ← method body line to highlight
+        const isOvr=rt.inCls!==ct.sel.method.cls;
+        if(isOvr)exRT+=`<b>${rt.inCls}</b> sınıfında override bulundu → <b>${rt.inCls}.${sigS(rt.method)}</b> çalıştırıldı.`;
+        else exRT+=`Override yok, tanım <b>${rt.inCls}.${sigS(rt.method)}</b>'da, orası çalıştırıldı.`;
+        if(rt.method.prints.length)exRT+=` Çıktı: <b>"${rt.method.prints[0]}"</b>.`;
+      }else if(rt){exRT+=`<b>Hata:</b> ${rt.error}`;}
+
+      let out=null;
+      if(ct.ok&&rt?.ok&&rt.method.prints.length){out=rt.method.prints[0];cout.push(out);}
+      steps.push({type:'call-rt',lines:[stmt.lineNum],methodLines:rtMLines,label:`${stmt.recv}.${stmt.mName}() — Runtime`,
+        explain:exRT,mem:snap(),cout:[...cout],analysis:{phase:'rt',ct,rt,vi,argTypes,argToks,out},stmt});
+    }
+    else if(stmt.type==='println'){
+      const raw=stmt.arg.replace(/^"|"$/g,'');cout.push(raw);
+      steps.push({type:'println',lines:[stmt.lineNum],methodLines:[],label:`println: "${raw}"`,
+        explain:`<code>System.out.println()</code> çalıştı. Konsola yazıldı: <b>"${raw}"</b>.`,
+        mem:snap(),cout:[...cout],analysis:null,stmt});
+    }
+  }
+  steps.push({type:'end',lines:[],methodLines:[],label:'Program tamamlandı',
+    explain:'<b>main()</b> metodu tamamlandı. Stack çerçevesi kapandı ve program sona erdi.',
+    mem:{stack:{frame:'main',vars:[]},heap:{}},cout:[...cout],analysis:null});
+  return steps;
+}
+
+/* ═══════════════════════════════════════════════════
+   SYNTAX HIGHLIGHTER
+═══════════════════════════════════════════════════ */
+const JKW=new Set(['class','extends','implements','interface','enum','public','private','protected','static','final','abstract','void','int','double','float','long','boolean','char','byte','short','new','return','if','else','for','while','do','switch','case','break','continue','null','true','false','this','super','throws','throw','try','catch','finally','instanceof','import','package']);
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function hlJava(code){
+  let r='',i=0;
+  while(i<code.length){
+    const c=code[i];
+    if(c==='"'){let s='"';i++;while(i<code.length&&code[i]!=='"'){if(code[i]==='\\'){s+=esc(code[i]);i++;}s+=esc(code[i]);i++;}s+='"';i++;r+=`<span class="hst">${s}</span>`;continue;}
+    if(c==="'"){let s="'";i++;while(i<code.length&&code[i]!=="'"){if(code[i]==='\\'){s+=esc(code[i]);i++;}s+=esc(code[i]);i++;}s+="'";i++;r+=`<span class="hst">${esc(s)}</span>`;continue;}
+    if(c==='/'&&code[i+1]==='/'){let s='';while(i<code.length&&code[i]!=='\n'){s+=code[i];i++;}r+=`<span class="hcm">${esc(s)}</span>`;continue;}
+    if(c==='/'&&code[i+1]==='*'){let s='/*';i+=2;while(i<code.length&&!(code[i-1]==='*'&&code[i]==='/')){s+=code[i];i++;}s+='/';i++;r+=`<span class="hcm">${esc(s)}</span>`;continue;}
+    if(/[a-zA-Z_$]/.test(c)){let w='';while(i<code.length&&/[\w$]/.test(code[i])){w+=code[i];i++;}
+      if(JKW.has(w))r+=`<span class="hkw">${esc(w)}</span>`;
+      else if(/^[A-Z]/.test(w))r+=`<span class="htp">${esc(w)}</span>`;
+      else if(i<code.length&&code[i]==='(')r+=`<span class="hfn">${esc(w)}</span>`;
+      else r+=`<span class="hid">${esc(w)}</span>`;continue;}
+    if(/\d/.test(c)){let n='';while(i<code.length&&/[\d.LlFfDd_]/.test(code[i])){n+=code[i];i++;}r+=`<span class="hnu">${esc(n)}</span>`;continue;}
+    r+=esc(c);i++;
+  }
+  return r;
+}
+
+/* ═══════════════════════════════════════════════════
+   RENDER
+═══════════════════════════════════════════════════ */
+function renderAll(){
+  if(!STEPS.length)return;
+  const step=STEPS[CUR];const total=STEPS.length;
+
+  // Counter
+  document.getElementById('nav-counter').textContent=`${CUR+1} / ${total}`;
+
+  // Slider
+  const sl=document.getElementById('nav-slider');
+  sl.max=total-1;sl.value=CUR;
+  const pct=(CUR/(total-1||1))*100;
+  sl.style.background=`linear-gradient(to right,#4a72b8 ${pct}%,#d0d7de ${pct}%)`;
+
+  // Buttons
+  const bprev=document.getElementById('btn-prev');const bnext=document.getElementById('btn-next');
+  bprev.disabled=CUR===0;bnext.disabled=CUR===total-1;
+  bnext.classList.toggle('on',CUR<total-1);
+
+  // Code (call lines=blue, method lines=green)
+  renderCode(step.lines,step.methodLines||[]);
+
+  // Memory
+  renderMemory(step.mem,CUR);
+
+  // Explanation
+  document.getElementById('explain-box').innerHTML='💬 '+step.explain;
+
+  // Analysis
+  renderAnalysis(step.analysis);
+
+  // Output
+  renderOutput(step.cout);
+}
+
+/* Render code panel with TWO types of highlights */
+function renderCode(callLines,methodLines){
+  const panel=document.getElementById('code-panel');
+  const cSet=new Set(callLines);
+  const mSet=new Set(methodLines);
+  panel.innerHTML='';
+  CODE_LINES.forEach((line,idx)=>{
+    const ln=idx+1;
+    const isCall=cSet.has(ln);
+    const isMethod=mSet.has(ln);
+    const d=document.createElement('div');
+    d.className='code-line'+(isCall?' active':'')+(isMethod?' active-method':'');
+    // Arrow
+    const ar=document.createElement('div');ar.className='cl-arrow';
+    if(isCall){ar.classList.add('cl-arrow-blue');ar.textContent='►';}
+    else if(isMethod){ar.classList.add('cl-arrow-green');ar.textContent='⤷';}
+    else ar.textContent='';
+    // Line number
+    const num=document.createElement('div');num.className='cl-num';num.textContent=ln;
+    // Code
+    const code=document.createElement('div');code.className='cl-code';code.innerHTML=hlJava(line)||' ';
+    d.appendChild(ar);d.appendChild(num);d.appendChild(code);
+    panel.appendChild(d);
+  });
+  // Scroll: prefer method line (that's where we jumped to), fallback call line
+  const scrollTarget=[...methodLines,...callLines][0];
+  if(scrollTarget){
+    setTimeout(()=>{
+      const all=panel.querySelectorAll('.code-line');
+      const el=all[scrollTarget-1];
+      if(el)el.scrollIntoView({block:'center',behavior:'smooth'});
+    },40);
+  }
+}
+
+function renderMemory(mem,stepIdx){
+  document.getElementById('stack-hdr').textContent=`main:${stepIdx}`;
+  const tbody=document.getElementById('stack-body');tbody.innerHTML='';
+  const vars=mem.stack?.vars||[];
+  if(!vars.length){
+    const tr=document.createElement('tr');tr.innerHTML='<td colspan="2" class="hempty">(değişken yok)</td>';tbody.appendChild(tr);
+  }else{
+    vars.forEach(v=>{
+      const tr=document.createElement('tr');if(v.isNew)tr.className='nw';
+      tr.innerHTML=`<td>${esc(v.name)}</td>`+(v.heapId?`<td><span class="vref">→${esc(v.dType)}#${esc(v.heapId)}</span></td>`:`<td>${esc(v.val||'—')}</td>`);
+      tbody.appendChild(tr);
+    });
+  }
+  const heapEntries=Object.values(mem.heap||{});
+  const hbox=document.getElementById('heap-box');const hbody=document.getElementById('heap-body');
+  if(!heapEntries.length){hbox.style.display='none';}else{
+    hbox.style.display='';hbody.innerHTML='';
+    heapEntries.forEach(obj=>{
+      const row=document.createElement('div');row.className='heap-row';
+      row.innerHTML=`<span style="color:#2e7d32;font-weight:600;">#${esc(obj.id)}</span> : <span style="color:#555;">${esc(obj.cls)}</span>`;
+      hbody.appendChild(row);
+    });
+  }
+}
+
+function renderAnalysis(analysis){
+  const anRow=document.getElementById('an-row');
+  const ctBody=document.getElementById('ct-body');const rtBody=document.getElementById('rt-body');
+  if(!analysis){anRow.style.display='none';return;}
+  anRow.style.display='flex';
+  const{ct,rt,vi,argTypes,argToks,phase,out}=analysis;
+
+  // CT
+  ctBody.innerHTML='';
+  if(!ct.ok){ctBody.innerHTML=row('Hata',`<span class="av-red">${esc(ct.error)}</span>`);}
+  else{
+    const sel=ct.sel;let h='';
+    h+=row('Statik tip',`<span class="av-blue">${esc(vi.sType)}</span>`);
+    h+=row('Argüman(lar)',argToks.length?argToks.map((t,i)=>`${esc(t)}<small style="color:#aaa"> : ${esc(argTypes[i])}</small>`).join(', '):'(yok)');
+    if(ct.cands.length>1){
+      const cl=`<div class="cand-list">`+ct.cands.map(c=>{
+        const isApp=ct.app.some(a=>a.method===c);const isSel=c===sel.method;
+        const cls=isSel?'ci-sel':(isApp?'ci-ok':'ci-no');
+        return`<span class="cand-item ${cls}">${esc(sigL(c))} @ ${esc(c.cls)}${isSel?' ✓':(!isApp?' ✗':'')}</span>`;
+      }).join('')+`</div>`;
+      h+=row('Adaylar',cl);
+    }
+    h+=row('Seçilen',`<span class="av-pur">${esc(sigL(sel.method))} @ ${esc(sel.method.cls)}</span>`);
+    if(sel.det.some(d=>d.cost>0)){h+=row('Widening',sel.det.filter(d=>d.cost>0).map(d=>`<span class="wt">${esc(d.from)}→${esc(d.to)}</span>`).join(' '));}
+    else{h+=row('Widening','<span class="av-grn">gerekmez ✓</span>');}
+    ctBody.innerHTML=h;
+  }
+
+  // RT
+  rtBody.innerHTML='';
+  if(!ct.ok){rtBody.innerHTML=`<div class="an-placeholder">Compile-time hatası var.</div>`;}
+  else if(phase==='ct'||!rt){rtBody.innerHTML=`<div class="an-placeholder">⏭ Sonraki adımda...</div>`;}
+  else if(!rt.ok){rtBody.innerHTML=row('Hata',`<span class="av-red">${esc(rt.error)}</span>`);}
+  else{
+    const isOvr=rt.inCls!==ct.sel.method.cls;let h='';
+    h+=row('Dinamik tip',`<span class="av-grn">${esc(vi.dType)}</span>`);
+    const hier=getHier(vi.dType,window._CLS||{});
+    if(hier.length>1)h+=row('Hiyerarşi',`<span style="color:#888;font-size:11px;">${hier.join(' → ')}</span>`);
+    h+=row('Çalışan',`<span class="av-grn">${esc(rt.inCls)}.${esc(sigS(rt.method))}</span>`);
+    h+=row('Override?',isOvr?'<span class="av-grn">✓ Evet</span>':'<span class="av-gray">Hayır (kalıtım)</span>');
+    if(out!=null)h+=row('Çıktı',`<span class="av-grn">"${esc(out)}"</span>`);
+    rtBody.innerHTML=h;
+  }
+}
+function row(k,v){return`<div class="an-row-item"><span class="an-k">${k}</span><span class="an-v">${v}</span></div>`;}
+
+function renderOutput(cout){
+  const body=document.getElementById('out-body');
+  if(!cout||!cout.length){body.innerHTML='<span class="out-empty">// Henüz çıktı yok</span>';}
+  else{body.innerHTML=cout.map(l=>`<div class="out-line">${esc(l)}</div>`).join('');}
+}
+
+/* ═══════════════════════════════════════════════════
+   STATE & NAVIGATION
+═══════════════════════════════════════════════════ */
+let STEPS=[],CUR=0,CODE_LINES=[],_CLS={};
+function nextStep(){if(CUR<STEPS.length-1){CUR++;renderAll();}}
+function prevStep(){if(CUR>0){CUR--;renderAll();}}
+function jumpTo(n){CUR=+n;renderAll();}
+
+document.addEventListener('keydown',e=>{
+  if(document.getElementById('play-view').style.display==='none')return;
+  if(e.key==='ArrowRight'||e.key==='ArrowDown'){e.preventDefault();nextStep();}
+  if(e.key==='ArrowLeft'||e.key==='ArrowUp'){e.preventDefault();prevStep();}
+});
+
+/* ═══════════════════════════════════════════════════
+   MODE TRANSITIONS
+═══════════════════════════════════════════════════ */
+function switchToPlay(){
+  document.getElementById('edit-view').style.display='none';
+  document.getElementById('play-view').style.display='flex';
+  ['btn-az','btn-clr','sep-e','lbl-ex','ex1','ex2','ex3'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
+  document.getElementById('btn-ed').style.display='';
+  renderAll();
+}
+function switchToEdit(){
+  document.getElementById('play-view').style.display='none';
+  document.getElementById('edit-view').style.display='flex';
+  ['btn-az','btn-clr','sep-e','lbl-ex','ex1','ex2','ex3'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='';});
+  document.getElementById('btn-ed').style.display='none';
+}
+
+/* ═══════════════════════════════════════════════════
+   ANALYSIS RUNNER
+═══════════════════════════════════════════════════ */
+function runAnalysis(){
+  const code=document.getElementById('code-ta').value.trim();
+  if(!code){showErr('Kod alanı boş.');return;}
+  let parsed,steps;
+  try{
+    parsed=parseJava(code);window._CLS=parsed.classes;_CLS=parsed.classes;
+    if(parsed.errors.length&&!parsed.mainClass){showErr(parsed.errors.join(' | '));return;}
+    steps=genSteps(parsed);
+  }catch(e){showErr('Parse hatası: '+e.message);console.error(e);return;}
+  STEPS=steps;CUR=0;CODE_LINES=code.split('\n');
+  document.getElementById('err-bar').style.display='none';
+  switchToPlay();
+}
+function showErr(msg){const e=document.getElementById('err-bar');e.textContent='⚠ '+msg;e.style.display='block';}
+
+/* ═══════════════════════════════════════════════════
+   EDITOR
+═══════════════════════════════════════════════════ */
+function updateLN(){const ta=document.getElementById('code-ta');const n=ta.value.split('\n').length;document.getElementById('line-nums').textContent=Array.from({length:n},(_,i)=>i+1).join('\n');}
+function clearCode(){document.getElementById('code-ta').value='';document.getElementById('err-bar').style.display='none';updateLN();}
+const TA=document.getElementById('code-ta');
+TA.addEventListener('input',updateLN);
+TA.addEventListener('scroll',()=>{document.getElementById('line-nums').scrollTop=TA.scrollTop;});
+TA.addEventListener('keydown',e=>{
+  if(e.key==='Tab'){e.preventDefault();const s=TA.selectionStart,en=TA.selectionEnd;TA.value=TA.value.slice(0,s)+'    '+TA.value.slice(en);TA.selectionStart=TA.selectionEnd=s+4;updateLN();}
+  if((e.ctrlKey||e.metaKey)&&e.key==='Enter')runAnalysis();
+});
+
+/* ═══════════════════════════════════════════════════
+   EXAMPLES
+═══════════════════════════════════════════════════ */
+const EX={
+ober:`class Ober {
+    void print(double d) { System.out.println("Ober double"); }
+}
+
+class Unter extends Ober {
+    void print(int i) { System.out.println("Unter int"); }
+    void print(double d) { System.out.println("Unter double"); }
+}
+
+public class Test {
+    public static void main(String[] args) {
+        Ober o = new Unter();
+        o.print(5);
+        Unter u = new Unter();
+        u.print(5);
+    }
+}`,
+animal:`class Animal {
+    void sound() { System.out.println("..."); }
+    void move(int steps) { System.out.println("Animal moves"); }
+}
+
+class Dog extends Animal {
+    void sound() { System.out.println("Woof!"); }
+    void move(double dist) { System.out.println("Dog runs fast"); }
+}
+
+class GoldenRetriever extends Dog {
+    void sound() { System.out.println("Golden Woof!"); }
+}
+
+public class Main {
+    public static void main(String[] args) {
+        Animal a = new Dog();
+        a.sound();
+        a.move(3);
+        Dog d = new GoldenRetriever();
+        d.sound();
+    }
+}`,
+shape:`class Shape {
+    void draw(int size) { System.out.println("Shape draw int"); }
+    void draw(double size) { System.out.println("Shape draw double"); }
+}
+
+class Circle extends Shape {
+    void draw(double size) { System.out.println("Circle draw double"); }
+}
+
+class ColoredCircle extends Circle {
+    void draw(double size) { System.out.println("ColoredCircle draw double"); }
+}
+
+public class Demo {
+    public static void main(String[] args) {
+        Shape s = new Circle();
+        s.draw(10);
+        s.draw(3.14);
+        Shape t = new ColoredCircle();
+        t.draw(10);
+        Circle c = new ColoredCircle();
+        c.draw(5);
+    }
+}`
+};
+function loadEx(k){document.getElementById('code-ta').value=EX[k];document.getElementById('err-bar').style.display='none';updateLN();}
+
+/* INIT */
+loadEx('ober');
+</script>
+</body>
+</html>
